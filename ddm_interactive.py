@@ -191,7 +191,7 @@ if "prev_stats" not in st.session_state:
     st.session_state.prev_stats = np.nan
 
 # Compute deltas if we have previous stats
-if st.session_state.prev_stats is not np.nan:
+if not np.isnan(st.session_state.prev_stats):
     delta_upper_pct = (
         current_stats["upper_pct"] - st.session_state.prev_stats["upper_pct"]
     )
@@ -460,7 +460,7 @@ with right_col:
             "The summary statistics show the percentage and mean response time (RT) for upper and lower boundary responses. "
             "Deltas indicate the change in these statistics since the last parameter adjustment."
         )
-    
+
         # Upper response metrics
         col1, col2 = st.columns(2)
         with col1:
@@ -471,7 +471,11 @@ with right_col:
                     if not np.isnan(current_stats["upper_pct"])
                     else "–"
                 ),
-                delta=f"{delta_upper_pct:+.0f}%" if not np.isnan(delta_upper_pct) else None,
+                delta=(
+                    f"{delta_upper_pct:+.0f}%"
+                    if not np.isnan(delta_upper_pct)
+                    else None
+                ),
                 delta_color="normal",
             )
         with col2:
@@ -482,7 +486,9 @@ with right_col:
                     if not np.isnan(current_stats["upper_rt_mean"])
                     else "–"
                 ),
-                delta=f"{delta_upper_rt:+.1f}" if not np.isnan(delta_upper_rt) else None,
+                delta=(
+                    f"{delta_upper_rt:+.1f}" if not np.isnan(delta_upper_rt) else None
+                ),
                 delta_color="inverse",
             )
 
@@ -498,7 +504,11 @@ with right_col:
                     if not np.isnan(current_stats["lower_pct"])
                     else "–"
                 ),
-                delta=f"{delta_lower_pct:+.0f}%" if not np.isnan(delta_lower_pct) else None,
+                delta=(
+                    f"{delta_lower_pct:+.0f}%"
+                    if not np.isnan(delta_lower_pct)
+                    else None
+                ),
                 delta_color="normal",
             )
         with col4:
@@ -509,7 +519,9 @@ with right_col:
                     if not np.isnan(current_stats["lower_rt_mean"])
                     else "–"
                 ),
-                delta=f"{delta_lower_rt:+.1f}" if not np.isnan(delta_lower_rt) else None,
+                delta=(
+                    f"{delta_lower_rt:+.1f}" if not np.isnan(delta_lower_rt) else None
+                ),
                 delta_color="inverse",
             )
 
