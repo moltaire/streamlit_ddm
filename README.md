@@ -1,4 +1,4 @@
-![diffusion](ddm.png)
+<img src="streamlit_ddm.png" width="340">
 
 # Drift Diffusion Model Demo
 
