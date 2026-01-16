@@ -9,7 +9,7 @@ import seaborn as sns
 sns.set_theme(style="white", context="paper", palette="rocket")
 
 st.set_page_config(
-    page_title="DDM Demo",
+    page_title="Interactive DDM",
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded",
