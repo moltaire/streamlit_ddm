@@ -188,10 +188,10 @@ current_stats = {
 
 # Initialize or update previous statistics in session state
 if "prev_stats" not in st.session_state:
-    st.session_state.prev_stats = np.nan
+    st.session_state.prev_stats = None
 
 # Compute deltas if we have previous stats
-if not np.isnan(st.session_state.prev_stats):
+if st.session_state.prev_stats is not None:
     delta_upper_pct = (
         current_stats["upper_pct"] - st.session_state.prev_stats["upper_pct"]
     )
