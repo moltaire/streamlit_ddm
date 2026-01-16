@@ -1,3 +1,5 @@
+![diffusion](ddm.png)
+
 # Drift Diffusion Model Demo
 
 Interactive visualization of the Drift Diffusion Model (DDM) - a sequential sampling model for two-choice decision making.
