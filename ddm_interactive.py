@@ -26,8 +26,8 @@ PRIMARY_COLOR = "#FF4B4B"
 
 
 # Model parameters
-T = 100 # total time steps
-nbins = 11 # number of bins for histograms
+T = 100  # total time steps
+nbins = 11  # number of bins for histograms
 
 with st.sidebar:
 
@@ -178,29 +178,37 @@ data = pd.DataFrame(dict(response=responses, rt=rts), index=y_final.index)
 
 # Compute current summary statistics
 current_stats = {
-    'upper_pct': (data['response'] == 1).mean() * 100,
-    'upper_count': (data['response'] == 1).sum(),
-    'upper_rt_mean': data.loc[data['response'] == 1]['rt'].mean(),
-    'lower_pct': (data['response'] == -1).mean() * 100,
-    'lower_count': (data['response'] == -1).sum(),
-    'lower_rt_mean': data.loc[data['response'] == -1]['rt'].mean(),
+    "upper_pct": (data["response"] == 1).mean() * 100,
+    "upper_count": (data["response"] == 1).sum(),
+    "upper_rt_mean": data.loc[data["response"] == 1]["rt"].mean(),
+    "lower_pct": (data["response"] == -1).mean() * 100,
+    "lower_count": (data["response"] == -1).sum(),
+    "lower_rt_mean": data.loc[data["response"] == -1]["rt"].mean(),
 }
 
 # Initialize or update previous statistics in session state
-if 'prev_stats' not in st.session_state:
-    st.session_state.prev_stats = None
+if "prev_stats" not in st.session_state:
+    st.session_state.prev_stats = np.nan
 
 # Compute deltas if we have previous stats
-if st.session_state.prev_stats is not None:
-    delta_upper_pct = current_stats['upper_pct'] - st.session_state.prev_stats['upper_pct']
-    delta_upper_rt = current_stats['upper_rt_mean'] - st.session_state.prev_stats['upper_rt_mean']
-    delta_lower_pct = current_stats['lower_pct'] - st.session_state.prev_stats['lower_pct']
-    delta_lower_rt = current_stats['lower_rt_mean'] - st.session_state.prev_stats['lower_rt_mean']
+if st.session_state.prev_stats is not np.nan:
+    delta_upper_pct = (
+        current_stats["upper_pct"] - st.session_state.prev_stats["upper_pct"]
+    )
+    delta_upper_rt = (
+        current_stats["upper_rt_mean"] - st.session_state.prev_stats["upper_rt_mean"]
+    )
+    delta_lower_pct = (
+        current_stats["lower_pct"] - st.session_state.prev_stats["lower_pct"]
+    )
+    delta_lower_rt = (
+        current_stats["lower_rt_mean"] - st.session_state.prev_stats["lower_rt_mean"]
+    )
 else:
-    delta_upper_pct = None
-    delta_upper_rt = None
-    delta_lower_pct = None
-    delta_lower_rt = None
+    delta_upper_pct = np.nan
+    delta_upper_rt = np.nan
+    delta_lower_pct = np.nan
+    delta_lower_rt = np.nan
 
 # Update previous stats for next comparison
 st.session_state.prev_stats = current_stats.copy()
@@ -249,7 +257,8 @@ if plotting_backend == "plotly":
 
     # Create subplots with shared x-axis
     fig = make_subplots(
-        rows=3, cols=1,
+        rows=3,
+        cols=1,
         row_heights=[0.15, 0.7, 0.15],
         shared_xaxes=True,
         vertical_spacing=0.02,
@@ -257,8 +266,11 @@ if plotting_backend == "plotly":
 
     # Add upper histogram
     fig.add_trace(
-        go.Bar(x=bin_centers, y=counts_up, marker_color=PRIMARY_COLOR, showlegend=False),
-        row=1, col=1
+        go.Bar(
+            x=bin_centers, y=counts_up, marker_color=PRIMARY_COLOR, showlegend=False
+        ),
+        row=1,
+        col=1,
     )
 
     # Add trajectories
@@ -273,60 +285,72 @@ if plotting_backend == "plotly":
                 showlegend=False,
                 hoverinfo="skip",
             ),
-            row=2, col=1
+            row=2,
+            col=1,
         )
 
     # Add choice boundaries
     fig.add_trace(
         go.Scatter(
-            x=[0, T], y=[b / 2, b / 2],
+            x=[0, T],
+            y=[b / 2, b / 2],
             mode="lines",
             line=dict(width=2, color=line_color),
             showlegend=False,
             hoverinfo="skip",
         ),
-        row=2, col=1
+        row=2,
+        col=1,
     )
     fig.add_trace(
         go.Scatter(
-            x=[0, T], y=[-b / 2, -b / 2],
+            x=[0, T],
+            y=[-b / 2, -b / 2],
             mode="lines",
             line=dict(width=2, color=line_color),
             showlegend=False,
             hoverinfo="skip",
         ),
-        row=2, col=1
+        row=2,
+        col=1,
     )
 
     # Add 0 line
     fig.add_trace(
         go.Scatter(
-            x=[0, T], y=[0, 0],
+            x=[0, T],
+            y=[0, 0],
             mode="lines",
             line=dict(width=0.5, color=line_color),
             showlegend=False,
             hoverinfo="skip",
         ),
-        row=2, col=1
+        row=2,
+        col=1,
     )
 
     # Add mean drift if enabled
     if show_mean_sd:
         fig.add_trace(
             go.Scatter(
-                x=[tau, x1], y=[y0, y1],
+                x=[tau, x1],
+                y=[y0, y1],
                 mode="lines",
                 line=dict(color=PRIMARY_COLOR, width=3),
                 showlegend=False,
                 hoverinfo="skip",
             ),
-            row=2, col=1
+            row=2,
+            col=1,
         )
 
     # Add lower histogram
     fig.add_trace(
-        go.Bar(x=bin_centers, y=counts_down, marker_color=PRIMARY_COLOR, showlegend=False),
-        row=3, col=1
+        go.Bar(
+            x=bin_centers, y=counts_down, marker_color=PRIMARY_COLOR, showlegend=False
+        ),
+        row=3,
+        col=1,
     )
 
     # Update layout
@@ -347,10 +371,11 @@ if plotting_backend == "plotly":
         range=[1.1 * -b / 2, 1.1 * b / 2],
         title="Evidence",
         title_standoff=0,
-        tickmode='array',
+        tickmode="array",
         tickvals=[-b / 2, 0, b / 2],
-        ticktext=['Lower<br>boundary', '0', 'Upper<br>boundary'],
-        row=2, col=1
+        ticktext=["Lower<br>boundary", "0", "Upper<br>boundary"],
+        row=2,
+        col=1,
     )
     fig.update_yaxes(range=[hist_ylim, 0], title="Count", row=3, col=1)
 
@@ -427,44 +452,66 @@ elif plotting_backend == "matplotlib":
 
 # Add summary statistics in the right column
 with right_col:
+
     # Add top spacing to center the content vertically with the plot
-    st.markdown("<div style='margin-top: 150px;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='margin-top: 0px;'></div>", unsafe_allow_html=True)
+    with st.expander("Summary statistics"):
+        st.markdown(
+            "The summary statistics show the percentage and mean response time (RT) for upper and lower boundary responses. "
+            "Deltas indicate the change in these statistics since the last parameter adjustment."
+        )
+    
+        # Upper response metrics
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric(
+                label="Upper responses",
+                value=(
+                    f"{current_stats['upper_pct']:.0f}%"
+                    if not np.isnan(current_stats["upper_pct"])
+                    else "–"
+                ),
+                delta=f"{delta_upper_pct:+.0f}%" if not np.isnan(delta_upper_pct) else None,
+                delta_color="normal",
+            )
+        with col2:
+            st.metric(
+                label="Mean RT",
+                value=(
+                    f"{current_stats['upper_rt_mean']:.1f}"
+                    if not np.isnan(current_stats["upper_rt_mean"])
+                    else "–"
+                ),
+                delta=f"{delta_upper_rt:+.1f}" if not np.isnan(delta_upper_rt) else None,
+                delta_color="inverse",
+            )
 
-    # Upper response metrics
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric(
-            label="Upper responses",
-            value=f"{current_stats['upper_pct']:.1f}%",
-            delta=f"{delta_upper_pct:+.1f}%" if delta_upper_pct is not None else None,
-            delta_color="normal",
-        )
-    with col2:
-        st.metric(
-            label="Upper Mean RT",
-            value=f"{current_stats['upper_rt_mean']:.1f}",
-            delta=f"{delta_upper_rt:+.1f}" if delta_upper_rt is not None else None,
-            delta_color="inverse",
-        )
+        st.markdown("---")
 
-    st.markdown("---")
-
-    # Lower response metrics
-    col3, col4 = st.columns(2)
-    with col3:
-        st.metric(
-            label="Lower responses",
-            value=f"{current_stats['lower_pct']:.1f}%",
-            delta=f"{delta_lower_pct:+.1f}%" if delta_lower_pct is not None else None,
-            delta_color="normal",
-        )
-    with col4:
-        st.metric(
-            label="Lower Mean RT",
-            value=f"{current_stats['lower_rt_mean']:.1f}",
-            delta=f"{delta_lower_rt:+.1f}" if delta_lower_rt is not None else None,
-            delta_color="inverse",
-        )
+        # Lower response metrics
+        col3, col4 = st.columns(2)
+        with col3:
+            st.metric(
+                label="Lower responses",
+                value=(
+                    f"{current_stats['lower_pct']:.0f}%"
+                    if not np.isnan(current_stats["lower_pct"])
+                    else "–"
+                ),
+                delta=f"{delta_lower_pct:+.0f}%" if not np.isnan(delta_lower_pct) else None,
+                delta_color="normal",
+            )
+        with col4:
+            st.metric(
+                label="Mean RT",
+                value=(
+                    f"{current_stats['lower_rt_mean']:.1f}"
+                    if not np.isnan(current_stats["lower_rt_mean"])
+                    else "–"
+                ),
+                delta=f"{delta_lower_rt:+.1f}" if not np.isnan(delta_lower_rt) else None,
+                delta_color="inverse",
+            )
 
 st.markdown("---")
 

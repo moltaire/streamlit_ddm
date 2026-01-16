@@ -2,9 +2,9 @@
 
 # Drift Diffusion Model Demo
 
-Interactive visualization of the Drift Diffusion Model (DDM) - a sequential sampling model for two-choice decision making.
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://ddm-interactive.streamlit.app)
 
-**Live demo:** https://moltaire-streamlit-ddm-ddm-demo-f1lkd1.streamlit.app/
+Interactive visualization of the Drift Diffusion Model (DDM) - a sequential sampling model for two-choice decision making.
 
 ## Reference
 
@@ -16,5 +16,5 @@ Ratcliff, R. (1978). A theory of memory retrieval. *Psychological Review*, 85(2)
 curl -LsSf https://astral.sh/uv/install.sh | sh  # Install uv
 git clone https://github.com/moltaire/streamlit_ddm
 cd streamlit_ddm
-uv run streamlit run ddm_demo.py
+uv run streamlit run ddm_interactive.py
 ```
