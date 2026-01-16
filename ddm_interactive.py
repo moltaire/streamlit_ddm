@@ -11,7 +11,7 @@ sns.set_theme(style="white", context="paper", palette="rocket")
 st.set_page_config(
     page_title="DDM Demo",
     page_icon="📈",
-    layout="centered",
+    layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
         "Report a bug": "https://www.twitter.com/moltaire",
@@ -21,9 +21,13 @@ st.set_page_config(
 np.random.seed(123)
 
 
+# Streamlit's primary red color
+PRIMARY_COLOR = "#FF4B4B"
+
+
 # Model parameters
-T = 100  # number of points per trajectory
-nbins = 20
+T = 100 # total time steps
+nbins = 11 # number of bins for histograms
 
 with st.sidebar:
 
@@ -39,7 +43,7 @@ with st.sidebar:
         min_value=-0.1,
         max_value=0.1,
         step=0.01,
-        value=0.03,
+        value=0.02,
         help=r"The drift rate parameter $v$ controls the drift rate. Positive values result in average movement towards the upper boundary, negative values towards the lower boundary. Higher absolute values are often interpreted indicating faster processing and ability, but these interpretations depend on the exact context of the task.",
     )
 
@@ -49,7 +53,7 @@ with st.sidebar:
         min_value=0.0,
         max_value=0.5,
         step=0.01,
-        value=0.05,
+        value=0.10,
         help=r"The diffusion parameter $\sigma$ controls the amount of random noise that is added to the process at each time point. Note, that conventionally, the diffusion coefficient is often held constant (e.g., at 0.1 or 1.0) to allow estimation of the drift rate and boundary separation.",
     )
 
@@ -59,7 +63,7 @@ with st.sidebar:
         min_value=0.0,
         max_value=1.0,
         step=0.05,
-        value=0.25,
+        value=0.4,
         help=r"The starting point parameter $\zeta$ controls the initial position between the boundaries. It is parameterized so that a value of 0.5 is right in the middle between the boundaries.",
     )
 
@@ -79,7 +83,7 @@ with st.sidebar:
         min_value=0,
         max_value=T,
         step=1,
-        value=20,
+        value=10,
         help=r"The non-decision-time $\tau$ is thought to capture non-decision-related components of the response time, like stimulus encoding and motor preparation and execution.",
     )
 
@@ -122,12 +126,19 @@ with st.sidebar:
             label="Number of trajectories:",
             min_value=1,
             max_value=200,
-            step=1,
+            step=10,
             value=100,
             help="Set the number of trajectories to be plotted. More looks nicer and gives smoother histograms, but might be a little more taxing for your computer to deal with.",
         )
         # Plotting backend
-        plotting_backend = st.radio("Plot with...", ("matplotlib", "plotly"))
+        plotting_backend = st.radio("Plot with...", ("plotly", "matplotlib"))
+
+        # plot mean ± sd drift
+        show_mean_sd = st.checkbox(
+            label="Show mean ± SD drift",
+            value=True,
+            help="Show the mean drift trajectory plus/minus one standard deviation (only for matplotlib backend).",
+        )
 
 # Simulate data
 t = np.arange(T)
@@ -165,6 +176,35 @@ responses = np.where(y_final <= -b / 2, -1, np.where(y_final >= b / 2, 1, np.nan
 rts = T - df.isnull().sum(axis=0)
 data = pd.DataFrame(dict(response=responses, rt=rts), index=y_final.index)
 
+# Compute current summary statistics
+current_stats = {
+    'upper_pct': (data['response'] == 1).mean() * 100,
+    'upper_count': (data['response'] == 1).sum(),
+    'upper_rt_mean': data.loc[data['response'] == 1]['rt'].mean(),
+    'lower_pct': (data['response'] == -1).mean() * 100,
+    'lower_count': (data['response'] == -1).sum(),
+    'lower_rt_mean': data.loc[data['response'] == -1]['rt'].mean(),
+}
+
+# Initialize or update previous statistics in session state
+if 'prev_stats' not in st.session_state:
+    st.session_state.prev_stats = None
+
+# Compute deltas if we have previous stats
+if st.session_state.prev_stats is not None:
+    delta_upper_pct = current_stats['upper_pct'] - st.session_state.prev_stats['upper_pct']
+    delta_upper_rt = current_stats['upper_rt_mean'] - st.session_state.prev_stats['upper_rt_mean']
+    delta_lower_pct = current_stats['lower_pct'] - st.session_state.prev_stats['lower_pct']
+    delta_lower_rt = current_stats['lower_rt_mean'] - st.session_state.prev_stats['lower_rt_mean']
+else:
+    delta_upper_pct = None
+    delta_upper_rt = None
+    delta_lower_pct = None
+    delta_lower_rt = None
+
+# Update previous stats for next comparison
+st.session_state.prev_stats = current_stats.copy()
+
 # Compute y-limit for histogram by rounding the count in the largest bin to the next 10
 bins = np.linspace(0, T, nbins + 1)
 bin_centers = 0.5 * (bins[:-1] + bins[1:])
@@ -186,70 +226,136 @@ else:
     x1 = tau + (-b / 2 - y0) // v + 1
     y1 = -b / 2
 
-## Histograms
+## Get theme-aware colors for lines
+# Detect if we're in dark mode
+try:
+    # This will work when theme is explicitly set
+    theme_base = st.get_option("theme.base")
+    is_dark_theme = theme_base == "dark"
+except:
+    # Default - assume light mode
+    is_dark_theme = False
+
+# Set line color based on theme
+line_color = "#FAFAFA" if is_dark_theme else "#31333F"
+
+## Create layout with plot on left and stats on right
+left_col, right_col = st.columns([3, 1])
+
+## Create combined figure with subplots
 if plotting_backend == "plotly":
-    hist_up = px.bar(x=bin_centers, y=counts_up)
-    hist_up.update_yaxes(range=[0, hist_ylim], title="Count")
+    from plotly.subplots import make_subplots
+    import plotly.graph_objects as go
 
-    # hist_down = px.histogram(data.loc[data["response"] == -1], x="rt", nbins=10)
-    hist_down = px.bar(x=bin_centers, y=counts_down)
-    hist_down.update_yaxes(range=[hist_ylim, 0], title="Count")
+    # Create subplots with shared x-axis
+    fig = make_subplots(
+        rows=3, cols=1,
+        row_heights=[0.15, 0.7, 0.15],
+        shared_xaxes=True,
+        vertical_spacing=0.02,
+    )
 
-    for hist in [hist_up, hist_down]:
-        hist.update_layout(height=100, bargap=0.075)
-        hist.update_xaxes(showticklabels=False, range=[0, T], title=None, showgrid=True)
+    # Add upper histogram
+    fig.add_trace(
+        go.Bar(x=bin_centers, y=counts_up, marker_color=PRIMARY_COLOR, showlegend=False),
+        row=1, col=1
+    )
 
-    ## Plot selected trajectory
-    trajectories = px.line(df_long, x="x", y="y", line_group="i")
-    trajectories.update_traces(opacity=np.max([0.1, 1 / n]))
-
-    ### Add choice boundaries
-    for bound in [-b / 2, b / 2]:
-        trajectories.add_shape(
-            type="line",
-            x0=0,
-            y0=bound,
-            x1=T,
-            y1=bound,
-            line=dict(color="Black"),
-            xref="x",
-            yref="y",
+    # Add trajectories
+    for i in range(n):
+        fig.add_trace(
+            go.Scatter(
+                x=df["x"],
+                y=df[f"y{i}"],
+                mode="lines",
+                line=dict(color=PRIMARY_COLOR),
+                opacity=np.max([0.1, 1 / n]),
+                showlegend=False,
+                hoverinfo="skip",
+            ),
+            row=2, col=1
         )
 
-    ### Add 0 line
-    trajectories.add_shape(
-        type="line",
-        x0=0,
-        y0=0,
-        x1=T,
-        y1=0,
-        line=dict(color="Black", width=0.5),
-        xref="x",
-        yref="y",
+    # Add choice boundaries
+    fig.add_trace(
+        go.Scatter(
+            x=[0, T], y=[b / 2, b / 2],
+            mode="lines",
+            line=dict(width=2, color=line_color),
+            showlegend=False,
+            hoverinfo="skip",
+        ),
+        row=2, col=1
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=[0, T], y=[-b / 2, -b / 2],
+            mode="lines",
+            line=dict(width=2, color=line_color),
+            showlegend=False,
+            hoverinfo="skip",
+        ),
+        row=2, col=1
     )
 
-    ### Add mean drift
-    trajectories.add_shape(
-        type="line",
-        x0=tau,
-        y0=y0,
-        x1=x1,
-        y1=y1,
-        line=dict(color="Blue", width=2),
-        xref="x",
-        yref="y",
+    # Add 0 line
+    fig.add_trace(
+        go.Scatter(
+            x=[0, T], y=[0, 0],
+            mode="lines",
+            line=dict(width=0.5, color=line_color),
+            showlegend=False,
+            hoverinfo="skip",
+        ),
+        row=2, col=1
     )
 
-    trajectories.update_yaxes(range=[1.1 * -b / 2, 1.1 * b / 2], title="Evidence")
-    trajectories.update_xaxes(title="Time", range=[0, T])
+    # Add mean drift if enabled
+    if show_mean_sd:
+        fig.add_trace(
+            go.Scatter(
+                x=[tau, x1], y=[y0, y1],
+                mode="lines",
+                line=dict(color=PRIMARY_COLOR, width=3),
+                showlegend=False,
+                hoverinfo="skip",
+            ),
+            row=2, col=1
+        )
 
-    # Reduce margins
-    for fig in [hist_up, trajectories, hist_down]:
-        fig.update_layout(margin=dict(l=20, r=20, t=0, b=0))
+    # Add lower histogram
+    fig.add_trace(
+        go.Bar(x=bin_centers, y=counts_down, marker_color=PRIMARY_COLOR, showlegend=False),
+        row=3, col=1
+    )
 
-    st.plotly_chart(hist_up)
-    st.plotly_chart(trajectories)
-    st.plotly_chart(hist_down)
+    # Update layout
+    fig.update_layout(
+        template="streamlit",
+        height=600,
+        bargap=0.075,
+        margin=dict(l=20, r=20, t=0, b=0),
+    )
+
+    # Update axes
+    fig.update_xaxes(range=[0, T], row=1, col=1, showticklabels=False, showgrid=True)
+    fig.update_xaxes(range=[0, T], row=2, col=1, showticklabels=False)
+    fig.update_xaxes(range=[0, T], row=3, col=1, title="Time")
+
+    fig.update_yaxes(range=[0, hist_ylim], title="Count", row=1, col=1)
+    fig.update_yaxes(
+        range=[1.1 * -b / 2, 1.1 * b / 2],
+        title="Evidence",
+        title_standoff=0,
+        tickmode='array',
+        tickvals=[-b / 2, 0, b / 2],
+        ticktext=['Lower<br>boundary', '0', 'Upper<br>boundary'],
+        row=2, col=1
+    )
+    fig.update_yaxes(range=[hist_ylim, 0], title="Count", row=3, col=1)
+
+    with left_col:
+        st.plotly_chart(fig, use_container_width=True)
 
 elif plotting_backend == "matplotlib":
     fig, axs = plt.subplots(3, 1, gridspec_kw={"height_ratios": [1, 3, 1]}, sharex=True)
@@ -267,18 +373,19 @@ elif plotting_backend == "matplotlib":
     )
 
     ## Mean drift
-    axs[1].plot([tau, x1], [y0, y1], color="#FF4B4B", lw=2)
-    if sv > 0:
-        from scipy.stats import norm
+    if show_mean_sd:
+        axs[1].plot([tau, x1], [y0, y1], color="#FF4B4B", lw=2)
+        if sv > 0:
+            from scipy.stats import norm
 
-        t = np.arange(tau, T)
-        axs[1].fill_between(
-            t,
-            y0 + norm.ppf(0.95, loc=v, scale=sv) * (t - tau),
-            y0 + norm.ppf(0.05, loc=v, scale=sv) * (t - tau),
-            color="#FF4B4B",
-            alpha=0.2,
-        )
+            t = np.arange(tau, T)
+            axs[1].fill_between(
+                t,
+                y0 + norm.ppf(0.95, loc=v, scale=sv) * (t - tau),
+                y0 + norm.ppf(0.05, loc=v, scale=sv) * (t - tau),
+                color="#FF4B4B",
+                alpha=0.2,
+            )
 
     ## 0-line
     axs[1].axhline(0, color="k", lw=0.5, zorder=-1)
@@ -314,17 +421,64 @@ elif plotting_backend == "matplotlib":
     fig.tight_layout()
     fig.align_ylabels(axs)
 
-    st.pyplot(fig)
+    with left_col:
+        st.markdown("### Diffusion")
+        st.pyplot(fig)
 
-st.markdown(
-    f"""---
-Upper responses:  {(data['response'] == 1).sum()}       ({(data['response'] == 1).mean() * 100:.2f}%)  
-Lower responses:  {(data['response'] == -1).sum()}      ({(data['response'] == -1).mean() * 100:.2f}%)  
-No response:      {pd.isnull(data['response']).sum()}   ({pd.isnull(data['response']).mean() * 100:.2f}%)
-"""
-)
+# Add summary statistics in the right column
+with right_col:
+    # Add top spacing to center the content vertically with the plot
+    st.markdown("<div style='margin-top: 150px;'></div>", unsafe_allow_html=True)
+
+    # Upper response metrics
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric(
+            label="Upper responses",
+            value=f"{current_stats['upper_pct']:.1f}%",
+            delta=f"{delta_upper_pct:+.1f}%" if delta_upper_pct is not None else None,
+            delta_color="normal",
+        )
+    with col2:
+        st.metric(
+            label="Upper Mean RT",
+            value=f"{current_stats['upper_rt_mean']:.1f}",
+            delta=f"{delta_upper_rt:+.1f}" if delta_upper_rt is not None else None,
+            delta_color="inverse",
+        )
+
+    st.markdown("---")
+
+    # Lower response metrics
+    col3, col4 = st.columns(2)
+    with col3:
+        st.metric(
+            label="Lower responses",
+            value=f"{current_stats['lower_pct']:.1f}%",
+            delta=f"{delta_lower_pct:+.1f}%" if delta_lower_pct is not None else None,
+            delta_color="normal",
+        )
+    with col4:
+        st.metric(
+            label="Lower Mean RT",
+            value=f"{current_stats['lower_rt_mean']:.1f}",
+            delta=f"{delta_lower_rt:+.1f}" if delta_lower_rt is not None else None,
+            delta_color="inverse",
+        )
+
+st.markdown("---")
 
 with st.expander("Inspect data:"):
-    st.dataframe(data, height=500)
-    st.dataframe(df, height=500)
-    
+    tab1, tab2 = st.tabs(["Response data", "Diffusion data"])
+
+    with tab1:
+        st.markdown(
+            "This table contains the response (1 = upper boundary, -1 = lower boundary, None = no response) and response time (in time steps) for each simulated trajectory."
+        )
+        st.dataframe(data, height=500, use_container_width=True)
+
+    with tab2:
+        st.markdown(
+            "This table contains the full diffusion trajectories for each simulated trajectory. Each column `y0` to `y{n-1}` contains the evidence values at each time step for one trajectory."
+        )
+        st.dataframe(df, height=500, use_container_width=True)
