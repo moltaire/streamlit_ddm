@@ -12,7 +12,7 @@ Ratcliff, R. (1978). A theory of memory retrieval. *Psychological Review*, 85(2)
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh  # Install uv
-git clone <your-repo-url>
+git clone https://github.com/moltaire/streamlit_ddm
 cd streamlit_ddm
 uv run streamlit run ddm_demo.py
 ```
